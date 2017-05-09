@@ -4,17 +4,21 @@ require_relative 'etag/version'
 require_relative 'etag/generator'
 require_relative 'etag/matcher'
 require_relative 'etag/middleware'
+require_relative 'etag/parser'
+require_relative 'etag/conditional'
 
 module Philiprehberger
   module Etag
     class Error < StandardError; end
 
-    # Generates a strong ETag from content using SHA256.
+    # Generates a strong ETag from content using the specified algorithm.
     #
     # @param content [String] the content to hash
+    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1)
     # @return [String] a quoted ETag string
-    def self.generate(content)
-      Generator.strong(content)
+    # @raise [ArgumentError] if the algorithm is not supported
+    def self.generate(content, algorithm: :sha256)
+      Generator.strong(content, algorithm: algorithm)
     end
 
     # Generates a weak ETag from content using MD5.
@@ -50,6 +54,44 @@ module Philiprehberger
     # @return [Boolean] true if the resource has been modified
     def self.modified?(etag, request_headers)
       Matcher.modified?(etag, request_headers)
+    end
+
+    # Generates a strong ETag for a file based on its mtime and size.
+    # Does not read file content.
+    #
+    # @param path [String] the file path
+    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1)
+    # @return [String] a quoted ETag string
+    # @raise [Errno::ENOENT] if the file does not exist
+    # @raise [ArgumentError] if the algorithm is not supported
+    def self.for_file(path, algorithm: :sha256)
+      Generator.for_file(path, algorithm: algorithm)
+    end
+
+    # Parses an ETag header value into a structured hash or array of hashes.
+    #
+    # @param header [String] the ETag header value
+    # @return [Hash, Array<Hash>] a hash with :weak and :value keys, or array of such hashes
+    def self.parse(header)
+      Parser.parse(header)
+    end
+
+    # Checks if a resource has been modified since the given If-Modified-Since header value.
+    #
+    # @param last_modified [Time] the last modification time of the resource
+    # @param if_modified_since_header [String] the If-Modified-Since header value (RFC 2822)
+    # @return [Boolean] true if the resource has been modified since the header date
+    def self.modified_since?(last_modified, if_modified_since_header)
+      Conditional.modified_since?(last_modified, if_modified_since_header)
+    end
+
+    # Checks if a resource has NOT been modified since the given If-Modified-Since header value.
+    #
+    # @param last_modified [Time] the last modification time of the resource
+    # @param if_modified_since_header [String] the If-Modified-Since header value (RFC 2822)
+    # @return [Boolean] true if the resource has NOT been modified since the header date
+    def self.not_modified_since?(last_modified, if_modified_since_header)
+      Conditional.not_modified_since?(last_modified, if_modified_since_header)
     end
   end
 end

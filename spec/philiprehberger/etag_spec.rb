@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'tempfile'
 
 RSpec.describe Philiprehberger::Etag do
   it 'has a version number' do
@@ -19,6 +20,39 @@ RSpec.describe Philiprehberger::Etag do
 
     it 'returns different results for different content' do
       expect(described_class.generate('foo')).not_to eq(described_class.generate('bar'))
+    end
+
+    context 'with custom algorithm' do
+      it 'generates with sha256 by default' do
+        etag = described_class.generate('hello')
+        expect(etag).to match(/\A"[a-f0-9]{64}"\z/)
+      end
+
+      it 'generates with sha512' do
+        etag = described_class.generate('hello', algorithm: :sha512)
+        expect(etag).to match(/\A"[a-f0-9]{128}"\z/)
+      end
+
+      it 'generates with md5' do
+        etag = described_class.generate('hello', algorithm: :md5)
+        expect(etag).to match(/\A"[a-f0-9]{32}"\z/)
+      end
+
+      it 'generates with sha1' do
+        etag = described_class.generate('hello', algorithm: :sha1)
+        expect(etag).to match(/\A"[a-f0-9]{40}"\z/)
+      end
+
+      it 'raises ArgumentError for unsupported algorithm' do
+        expect { described_class.generate('hello', algorithm: :blake2) }
+          .to raise_error(ArgumentError, /unsupported algorithm/)
+      end
+
+      it 'returns different results for different algorithms' do
+        sha256 = described_class.generate('hello', algorithm: :sha256)
+        md5 = described_class.generate('hello', algorithm: :md5)
+        expect(sha256).not_to eq(md5)
+      end
     end
   end
 
@@ -128,6 +162,181 @@ RSpec.describe Philiprehberger::Etag do
     end
   end
 
+  describe '.for_file' do
+    it 'returns a quoted ETag for an existing file' do
+      file = Tempfile.new('etag_test')
+      file.write('test content')
+      file.close
+
+      etag = described_class.for_file(file.path)
+      expect(etag).to match(/\A"[a-f0-9]{64}"\z/)
+    ensure
+      file&.unlink
+    end
+
+    it 'returns consistent results for the same file' do
+      file = Tempfile.new('etag_test')
+      file.write('test content')
+      file.close
+
+      etag1 = described_class.for_file(file.path)
+      etag2 = described_class.for_file(file.path)
+      expect(etag1).to eq(etag2)
+    ensure
+      file&.unlink
+    end
+
+    it 'returns different results when file is modified' do
+      file = Tempfile.new('etag_test')
+      file.write('original')
+      file.close
+
+      etag1 = described_class.for_file(file.path)
+
+      sleep 1.1
+      File.write(file.path, 'modified content that is longer')
+
+      etag2 = described_class.for_file(file.path)
+      expect(etag1).not_to eq(etag2)
+    ensure
+      file&.unlink
+    end
+
+    it 'supports custom algorithms' do
+      file = Tempfile.new('etag_test')
+      file.write('test')
+      file.close
+
+      etag = described_class.for_file(file.path, algorithm: :md5)
+      expect(etag).to match(/\A"[a-f0-9]{32}"\z/)
+    ensure
+      file&.unlink
+    end
+
+    it 'raises Errno::ENOENT for missing files' do
+      expect { described_class.for_file('/nonexistent/path/file.txt') }
+        .to raise_error(Errno::ENOENT)
+    end
+
+    it 'does not read file content' do
+      file = Tempfile.new('etag_test')
+      file.write('test content')
+      file.close
+
+      allow(File).to receive(:read).and_call_original
+      described_class.for_file(file.path)
+      expect(File).not_to have_received(:read)
+    ensure
+      file&.unlink
+    end
+  end
+
+  describe '.parse' do
+    it 'parses a strong ETag' do
+      result = described_class.parse('"abc123"')
+      expect(result).to eq({ weak: false, value: 'abc123' })
+    end
+
+    it 'parses a weak ETag' do
+      result = described_class.parse('W/"abc123"')
+      expect(result).to eq({ weak: true, value: 'abc123' })
+    end
+
+    it 'parses multiple ETags into an array' do
+      result = described_class.parse('"aaa", W/"bbb", "ccc"')
+      expect(result).to eq([
+                             { weak: false, value: 'aaa' },
+                             { weak: true, value: 'bbb' },
+                             { weak: false, value: 'ccc' }
+                           ])
+    end
+
+    it 'handles a single ETag returning a hash' do
+      result = described_class.parse('"single"')
+      expect(result).to be_a(Hash)
+      expect(result[:value]).to eq('single')
+    end
+
+    it 'handles nil header' do
+      result = described_class.parse(nil)
+      expect(result).to eq({ weak: false, value: '' })
+    end
+
+    it 'handles empty header' do
+      result = described_class.parse('')
+      expect(result).to eq({ weak: false, value: '' })
+    end
+
+    it 'handles whitespace-only header' do
+      result = described_class.parse('   ')
+      expect(result).to eq({ weak: false, value: '' })
+    end
+
+    it 'handles ETags with extra whitespace' do
+      result = described_class.parse('  "abc"  ,  W/"def"  ')
+      expect(result).to eq([
+                             { weak: false, value: 'abc' },
+                             { weak: true, value: 'def' }
+                           ])
+    end
+
+    it 'handles unquoted values' do
+      result = described_class.parse('abc123')
+      expect(result).to eq({ weak: false, value: 'abc123' })
+    end
+  end
+
+  describe '.modified_since?' do
+    let(:last_modified) { Time.utc(2026, 3, 28, 12, 0, 0) }
+
+    it 'returns true when the resource was modified after the header date' do
+      header = 'Fri, 27 Mar 2026 12:00:00 GMT'
+      expect(described_class.modified_since?(last_modified, header)).to be true
+    end
+
+    it 'returns false when the resource was not modified after the header date' do
+      header = 'Sun, 29 Mar 2026 12:00:00 GMT'
+      expect(described_class.modified_since?(last_modified, header)).to be false
+    end
+
+    it 'returns false when times are equal' do
+      header = 'Sat, 28 Mar 2026 12:00:00 GMT'
+      expect(described_class.modified_since?(last_modified, header)).to be false
+    end
+
+    it 'returns true for nil header' do
+      expect(described_class.modified_since?(last_modified, nil)).to be true
+    end
+
+    it 'returns true for empty header' do
+      expect(described_class.modified_since?(last_modified, '')).to be true
+    end
+
+    it 'returns true for unparseable header' do
+      expect(described_class.modified_since?(last_modified, 'not-a-date')).to be true
+    end
+  end
+
+  describe '.not_modified_since?' do
+    let(:last_modified) { Time.utc(2026, 3, 28, 12, 0, 0) }
+
+    it 'returns false when the resource was modified after the header date' do
+      header = 'Fri, 27 Mar 2026 12:00:00 GMT'
+      expect(described_class.not_modified_since?(last_modified, header)).to be false
+    end
+
+    it 'returns true when the resource was not modified after the header date' do
+      header = 'Sun, 29 Mar 2026 12:00:00 GMT'
+      expect(described_class.not_modified_since?(last_modified, header)).to be true
+    end
+
+    it 'is the inverse of modified_since?' do
+      header = 'Fri, 27 Mar 2026 12:00:00 GMT'
+      expect(described_class.not_modified_since?(last_modified, header))
+        .to eq(!described_class.modified_since?(last_modified, header))
+    end
+  end
+
   describe Philiprehberger::Etag::Middleware do
     let(:body_content) { 'Hello, World!' }
     let(:app) { ->(_env) { [200, { 'Content-Type' => 'text/plain' }, [body_content]] } }
@@ -168,6 +377,137 @@ RSpec.describe Philiprehberger::Etag do
       existing_middleware = described_class.new(existing_app)
       _status, headers, _body = existing_middleware.call({})
       expect(headers['ETag']).to eq('"existing"')
+    end
+
+    it 'hashes the raw body before Content-Encoding' do
+      encoded_app = lambda { |_env|
+        [200, { 'Content-Type' => 'text/plain', 'Content-Encoding' => 'gzip' }, ['raw body']]
+      }
+      encoded_middleware = described_class.new(encoded_app)
+      _status, headers, _body = encoded_middleware.call({})
+
+      expected_etag = Philiprehberger::Etag.generate('raw body')
+      expect(headers['ETag']).to eq(expected_etag)
+    end
+  end
+
+  describe Philiprehberger::Etag::Generator do
+    describe '.strong' do
+      it 'supports sha256 algorithm' do
+        etag = described_class.strong('test', algorithm: :sha256)
+        expect(etag).to match(/\A"[a-f0-9]{64}"\z/)
+      end
+
+      it 'supports sha512 algorithm' do
+        etag = described_class.strong('test', algorithm: :sha512)
+        expect(etag).to match(/\A"[a-f0-9]{128}"\z/)
+      end
+
+      it 'supports md5 algorithm' do
+        etag = described_class.strong('test', algorithm: :md5)
+        expect(etag).to match(/\A"[a-f0-9]{32}"\z/)
+      end
+
+      it 'supports sha1 algorithm' do
+        etag = described_class.strong('test', algorithm: :sha1)
+        expect(etag).to match(/\A"[a-f0-9]{40}"\z/)
+      end
+
+      it 'raises for unsupported algorithm' do
+        expect { described_class.strong('test', algorithm: :blake2) }
+          .to raise_error(ArgumentError, /unsupported algorithm: blake2/)
+      end
+    end
+
+    describe '.for_file' do
+      it 'generates an ETag from file metadata' do
+        file = Tempfile.new('gen_test')
+        file.write('content')
+        file.close
+
+        etag = described_class.for_file(file.path)
+        expect(etag).to match(/\A"[a-f0-9]{64}"\z/)
+      ensure
+        file&.unlink
+      end
+
+      it 'accepts a custom algorithm' do
+        file = Tempfile.new('gen_test')
+        file.write('content')
+        file.close
+
+        etag = described_class.for_file(file.path, algorithm: :sha512)
+        expect(etag).to match(/\A"[a-f0-9]{128}"\z/)
+      ensure
+        file&.unlink
+      end
+    end
+  end
+
+  describe Philiprehberger::Etag::Conditional do
+    describe '.modified_since?' do
+      let(:last_modified) { Time.utc(2026, 3, 28, 12, 0, 0) }
+
+      it 'returns true when resource is newer' do
+        header = 'Fri, 27 Mar 2026 12:00:00 GMT'
+        expect(described_class.modified_since?(last_modified, header)).to be true
+      end
+
+      it 'returns false when resource is older' do
+        header = 'Sun, 29 Mar 2026 12:00:00 GMT'
+        expect(described_class.modified_since?(last_modified, header)).to be false
+      end
+
+      it 'handles RFC 2822 date format' do
+        header = 'Fri, 27 Mar 2026 12:00:00 +0000'
+        expect(described_class.modified_since?(last_modified, header)).to be true
+      end
+    end
+
+    describe '.not_modified_since?' do
+      it 'returns the inverse of modified_since?' do
+        last_modified = Time.utc(2026, 3, 28, 12, 0, 0)
+        header = 'Fri, 27 Mar 2026 12:00:00 GMT'
+        expect(described_class.not_modified_since?(last_modified, header)).to be false
+      end
+    end
+  end
+
+  describe Philiprehberger::Etag::Parser do
+    describe '.parse' do
+      it 'parses a single strong ETag' do
+        result = described_class.parse('"abc"')
+        expect(result).to eq({ weak: false, value: 'abc' })
+      end
+
+      it 'parses a single weak ETag' do
+        result = described_class.parse('W/"abc"')
+        expect(result).to eq({ weak: true, value: 'abc' })
+      end
+
+      it 'parses multiple ETags' do
+        result = described_class.parse('"a", "b", "c"')
+        expect(result.length).to eq(3)
+        expect(result.map { |r| r[:value] }).to eq(%w[a b c])
+      end
+
+      it 'parses mixed strong and weak ETags' do
+        result = described_class.parse('"strong", W/"weak"')
+        expect(result).to eq([
+                               { weak: false, value: 'strong' },
+                               { weak: true, value: 'weak' }
+                             ])
+      end
+
+      it 'returns a hash for a single ETag' do
+        result = described_class.parse('"only"')
+        expect(result).to be_a(Hash)
+      end
+
+      it 'returns an array for multiple ETags' do
+        result = described_class.parse('"a", "b"')
+        expect(result).to be_an(Array)
+      end
     end
   end
 end

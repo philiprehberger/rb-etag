@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-28
+
+### Added
+
+- Custom hash algorithm support for `Etag.generate` via `algorithm:` keyword (`:sha256`, `:sha512`, `:md5`, `:sha1`)
+- If-Modified-Since support with `Etag.modified_since?` and `Etag.not_modified_since?`
+- File-based ETag generation with `Etag.for_file` using file mtime and size
+- ETag header parsing with `Etag.parse` returning structured hash or array of hashes
+- Content-encoding awareness in Middleware (hashes raw body before encoding)
+- GitHub issue templates (bug report, feature request)
+- Dependabot configuration for bundler and GitHub Actions
+- Pull request template
+
 ## [0.1.1] - 2026-03-26
 
 ### Added

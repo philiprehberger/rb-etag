@@ -2,7 +2,11 @@
 
 [![Tests](https://github.com/philiprehberger/rb-etag/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-etag/actions/workflows/ci.yml)
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-etag.svg)](https://rubygems.org/gems/philiprehberger-etag)
+[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/rb-etag)](https://github.com/philiprehberger/rb-etag/releases)
+[![Last updated](https://img.shields.io/github/last-commit/philiprehberger/rb-etag)](https://github.com/philiprehberger/rb-etag/commits/main)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-etag)](LICENSE)
+[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/rb-etag/bug)](https://github.com/philiprehberger/rb-etag/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/rb-etag/enhancement)](https://github.com/philiprehberger/rb-etag/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 ETag generation and conditional request helpers with Rack middleware
@@ -34,9 +38,22 @@ etag = Philiprehberger::Etag.generate("Hello, World!")
 # => "\"dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f\""
 ```
 
+### Custom Hash Algorithm
+
+```ruby
+require "philiprehberger/etag"
+
+Philiprehberger::Etag.generate("content", algorithm: :sha256)  # default
+Philiprehberger::Etag.generate("content", algorithm: :sha512)
+Philiprehberger::Etag.generate("content", algorithm: :md5)
+Philiprehberger::Etag.generate("content", algorithm: :sha1)
+```
+
 ### Weak ETags
 
 ```ruby
+require "philiprehberger/etag"
+
 weak = Philiprehberger::Etag.weak("Hello, World!")
 # => "W/\"65a8e27d8879283831b664bd8b7f0ad4\""
 ```
@@ -44,6 +61,8 @@ weak = Philiprehberger::Etag.weak("Hello, World!")
 ### Conditional Request Matching
 
 ```ruby
+require "philiprehberger/etag"
+
 etag = Philiprehberger::Etag.generate("content")
 
 # Weak comparison (If-None-Match)
@@ -58,6 +77,8 @@ Philiprehberger::Etag.strong_match?(etag, etag)     # => true
 ### Modified Detection
 
 ```ruby
+require "philiprehberger/etag"
+
 etag = Philiprehberger::Etag.generate("content")
 
 headers = { "HTTP_IF_NONE_MATCH" => etag }
@@ -65,6 +86,46 @@ Philiprehberger::Etag.modified?(etag, headers)  # => false
 
 headers = { "HTTP_IF_NONE_MATCH" => "\"stale\"" }
 Philiprehberger::Etag.modified?(etag, headers)  # => true
+```
+
+### If-Modified-Since Support
+
+```ruby
+require "philiprehberger/etag"
+
+last_modified = Time.utc(2026, 3, 28, 12, 0, 0)
+
+Philiprehberger::Etag.modified_since?(last_modified, "Fri, 27 Mar 2026 12:00:00 GMT")
+# => true (resource is newer)
+
+Philiprehberger::Etag.not_modified_since?(last_modified, "Sun, 29 Mar 2026 12:00:00 GMT")
+# => true (resource is older)
+```
+
+### File-Based ETags
+
+```ruby
+require "philiprehberger/etag"
+
+etag = Philiprehberger::Etag.for_file("/path/to/file.txt")
+# => "\"a1b2c3...\"" (based on mtime + size, does not read content)
+
+etag = Philiprehberger::Etag.for_file("/path/to/file.txt", algorithm: :md5)
+```
+
+### ETag Parsing
+
+```ruby
+require "philiprehberger/etag"
+
+Philiprehberger::Etag.parse('"abc123"')
+# => { weak: false, value: "abc123" }
+
+Philiprehberger::Etag.parse('W/"abc123"')
+# => { weak: true, value: "abc123" }
+
+Philiprehberger::Etag.parse('"aaa", W/"bbb", "ccc"')
+# => [{ weak: false, value: "aaa" }, { weak: true, value: "bbb" }, { weak: false, value: "ccc" }]
 ```
 
 ### Rack Middleware
@@ -78,17 +139,21 @@ use Philiprehberger::Etag::Middleware
 run MyApp
 ```
 
-The middleware computes a strong ETag from the response body, adds the `ETag` header, and returns `304 Not Modified` with an empty body when `If-None-Match` matches.
+The middleware computes a strong ETag from the raw response body before any Content-Encoding is applied, adds the `ETag` header, and returns `304 Not Modified` with an empty body when `If-None-Match` matches.
 
 ## API
 
 | Method | Description |
 |--------|-------------|
-| `Etag.generate(content)` | Strong ETag from SHA256, returns quoted string |
+| `Etag.generate(content, algorithm: :sha256)` | Strong ETag using specified algorithm, returns quoted string |
 | `Etag.weak(content)` | Weak ETag from MD5, returns `W/"..."` string |
 | `Etag.match?(etag, header)` | Weak comparison against If-None-Match header |
 | `Etag.strong_match?(etag, header)` | Strong comparison against If-Match header |
-| `Etag.modified?(etag, request_headers)` | Check if resource is modified based on headers |
+| `Etag.modified?(etag, request_headers)` | Check if resource is modified based on ETag headers |
+| `Etag.modified_since?(last_modified, header)` | Check if resource was modified after If-Modified-Since date |
+| `Etag.not_modified_since?(last_modified, header)` | Inverse of `modified_since?` |
+| `Etag.for_file(path, algorithm: :sha256)` | Strong ETag from file mtime and size without reading content |
+| `Etag.parse(header)` | Parse ETag header into `{weak:, value:}` hash or array of hashes |
 | `Etag::Middleware.new(app)` | Rack middleware for automatic ETag and 304 handling |
 
 ## Development
@@ -98,6 +163,13 @@ bundle install
 bundle exec rspec
 bundle exec rubocop
 ```
+
+## Support
+
+If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+
+[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
+[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
 
 ## License
 
