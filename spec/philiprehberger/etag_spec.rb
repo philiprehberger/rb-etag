@@ -67,6 +67,25 @@ RSpec.describe Philiprehberger::Etag do
     end
   end
 
+  describe '.equal?' do
+    it 'returns true for identical ETags' do
+      expect(described_class.equal?('"abc"', '"abc"')).to be true
+    end
+
+    it 'treats a weak ETag as equal to its strong counterpart' do
+      expect(described_class.equal?('"abc"', 'W/"abc"')).to be true
+    end
+
+    it 'returns false for different ETags' do
+      expect(described_class.equal?('"abc"', '"def"')).to be false
+    end
+
+    it 'returns false when either side is nil' do
+      expect(described_class.equal?(nil, '"abc"')).to be false
+      expect(described_class.equal?('"abc"', nil)).to be false
+    end
+  end
+
   describe '.match?' do
     let(:etag) { described_class.generate('hello') }
 

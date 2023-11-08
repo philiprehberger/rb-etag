@@ -85,6 +85,17 @@ module Philiprehberger
       Conditional.modified_since?(last_modified, if_modified_since_header)
     end
 
+    # Compare two ETag strings using weak comparison semantics (W/ prefix is ignored).
+    #
+    # @param a [String] first ETag string
+    # @param b [String] second ETag string
+    # @return [Boolean] true if the two ETags represent the same validator
+    def self.equal?(a, b)
+      return false if a.nil? || b.nil?
+
+      a.sub(%r{\AW/}, '') == b.sub(%r{\AW/}, '')
+    end
+
     # Checks if a resource has NOT been modified since the given If-Modified-Since header value.
     #
     # @param last_modified [Time] the last modification time of the resource
