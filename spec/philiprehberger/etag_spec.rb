@@ -86,6 +86,29 @@ RSpec.describe Philiprehberger::Etag do
     end
   end
 
+  describe '.strip_weak' do
+    it 'removes the W/ prefix from a weak ETag' do
+      expect(described_class.strip_weak('W/"abc"')).to eq('"abc"')
+    end
+
+    it 'returns a strong ETag unchanged' do
+      expect(described_class.strip_weak('"abc"')).to eq('"abc"')
+    end
+
+    it 'returns nil when given nil' do
+      expect(described_class.strip_weak(nil)).to be_nil
+    end
+
+    it 'returns non-String inputs unchanged' do
+      expect(described_class.strip_weak(42)).to eq(42)
+      expect(described_class.strip_weak(:symbol)).to eq(:symbol)
+    end
+
+    it 'only strips the leading W/ and leaves the rest of the value intact' do
+      expect(described_class.strip_weak('W/"W/abc"')).to eq('"W/abc"')
+    end
+  end
+
   describe '.match?' do
     let(:etag) { described_class.generate('hello') }
 

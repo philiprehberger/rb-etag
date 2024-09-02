@@ -78,6 +78,16 @@ Philiprehberger::Etag.equal?('"abc"', 'W/"abc"')  # => true
 Philiprehberger::Etag.equal?('"abc"', '"def"')     # => false
 ```
 
+### Strip Weak Prefix
+
+Remove the `W/` weak validator prefix from an ETag (noop if it is already strong):
+
+```ruby
+Philiprehberger::Etag.strip_weak('W/"abc"')  # => "\"abc\""
+Philiprehberger::Etag.strip_weak('"abc"')     # => "\"abc\""
+Philiprehberger::Etag.strip_weak(nil)         # => nil
+```
+
 ### Modified Detection
 
 ```ruby
@@ -153,6 +163,7 @@ The middleware computes a strong ETag from the raw response body before any Cont
 | `Etag.weak(content)` | Weak ETag from MD5, returns `W/"..."` string |
 | `Etag.match?(etag, header)` | Weak comparison against If-None-Match header |
 | `Etag.equal?(a, b)` | Compare two ETag strings with weak semantics (strips W/) |
+| `Etag.strip_weak(etag)` | Return the ETag with the `W/` prefix removed; `nil` passes through, non-Strings returned unchanged |
 | `Etag.strong_match?(etag, header)` | Strong comparison against If-Match header |
 | `Etag.modified?(etag, request_headers)` | Check if resource is modified based on ETag headers |
 | `Etag.modified_since?(last_modified, header)` | Check if resource was modified after If-Modified-Since date |
