@@ -88,6 +88,23 @@ Philiprehberger::Etag.strip_weak('"abc"')     # => "\"abc\""
 Philiprehberger::Etag.strip_weak(nil)         # => nil
 ```
 
+### Strong vs. Weak Match Predicates
+
+Build a `Matcher` bound to a header value to distinguish strong from weak matches per RFC 7232:
+
+```ruby
+require "philiprehberger/etag"
+
+matcher = Philiprehberger::Etag::Matcher.new('"abc"')
+matcher.strong_match?('"abc"')    # => true
+matcher.weak_match?('W/"abc"')    # => true (same opaque tag, weakness ignored)
+matcher.strong_match?('W/"abc"')  # => false (weak not allowed in strong comparison)
+
+wildcard = Philiprehberger::Etag::Matcher.new('*')
+wildcard.strong_match?('"abc"')   # => true
+wildcard.weak_match?('W/"abc"')   # => true
+```
+
 ### Modified Detection
 
 ```ruby
@@ -170,6 +187,8 @@ The middleware computes a strong ETag from the raw response body before any Cont
 | `Etag.not_modified_since?(last_modified, header)` | Inverse of `modified_since?` |
 | `Etag.for_file(path, algorithm: :sha256)` | Strong ETag from file mtime and size without reading content |
 | `Etag.parse(header)` | Parse ETag header into `{weak:, value:}` hash or array of hashes |
+| `Etag::Matcher.new(header).strong_match?(etag)` | True iff header has a strong match for etag (byte-equal opaque tag, neither side weak); wildcard returns true |
+| `Etag::Matcher.new(header).weak_match?(etag)` | True iff header has an entry with the same opaque tag as etag (weakness ignored); wildcard returns true |
 | `Etag::Middleware.new(app)` | Rack middleware for automatic ETag and 304 handling |
 
 ## Development
