@@ -4,6 +4,8 @@ module Philiprehberger
   module Etag
     # Rack middleware that automatically adds ETag headers to responses
     # and returns 304 Not Modified when the client's cached version matches.
+    # The ETag is computed from the raw response body before any Content-Encoding
+    # is applied, ensuring consistent hashing regardless of compression.
     class Middleware
       # @param app [#call] the Rack application
       def initialize(app)
@@ -46,6 +48,7 @@ module Philiprehberger
       end
 
       # Extracts the full response body as a string.
+      # This reads the raw body before any Content-Encoding is applied.
       #
       # @param body [#each] the Rack response body
       # @return [String] the concatenated body
