@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email = ['me@philiprehberger.com']
   spec.summary = 'ETag generation and conditional request helpers with Rack middleware'
   spec.description = 'Generate strong and weak ETags, evaluate If-None-Match and If-Match headers, ' \
-                       'and serve 304 Not Modified responses via included Rack middleware.'
+                     'and serve 304 Not Modified responses via included Rack middleware.'
   spec.homepage = 'https://philiprehberger.com/open-source-packages/ruby/philiprehberger-etag'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 3.1.0'
