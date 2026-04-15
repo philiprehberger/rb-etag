@@ -96,6 +96,18 @@ module Philiprehberger
       a.sub(%r{\AW/}, '') == b.sub(%r{\AW/}, '')
     end
 
+    # Strips the weak validator prefix (W/) from an ETag string.
+    # Returns the input unchanged if it is not a String or does not start with W/.
+    #
+    # @param etag [String, nil] the ETag string
+    # @return [String, nil] the ETag without the W/ prefix, or the input unchanged
+    def self.strip_weak(etag)
+      return nil if etag.nil?
+      return etag unless etag.is_a?(String)
+
+      etag.sub(%r{\AW/}, '')
+    end
+
     # Checks if a resource has NOT been modified since the given If-Modified-Since header value.
     #
     # @param last_modified [Time] the last modification time of the resource
