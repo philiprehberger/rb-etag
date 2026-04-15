@@ -69,6 +69,15 @@ Philiprehberger::Etag.match?(etag, "\"other\"")     # => false
 Philiprehberger::Etag.strong_match?(etag, etag)     # => true
 ```
 
+### Direct Comparison
+
+Compare two ETag strings using weak semantics (the `W/` prefix is ignored):
+
+```ruby
+Philiprehberger::Etag.equal?('"abc"', 'W/"abc"')  # => true
+Philiprehberger::Etag.equal?('"abc"', '"def"')     # => false
+```
+
 ### Modified Detection
 
 ```ruby
@@ -143,6 +152,7 @@ The middleware computes a strong ETag from the raw response body before any Cont
 | `Etag.generate(content, algorithm: :sha256)` | Strong ETag using specified algorithm, returns quoted string |
 | `Etag.weak(content)` | Weak ETag from MD5, returns `W/"..."` string |
 | `Etag.match?(etag, header)` | Weak comparison against If-None-Match header |
+| `Etag.equal?(a, b)` | Compare two ETag strings with weak semantics (strips W/) |
 | `Etag.strong_match?(etag, header)` | Strong comparison against If-Match header |
 | `Etag.modified?(etag, request_headers)` | Check if resource is modified based on ETag headers |
 | `Etag.modified_since?(last_modified, header)` | Check if resource was modified after If-Modified-Since date |

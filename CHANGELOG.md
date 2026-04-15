@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-15
+
+### Added
+- `Etag.equal?(a, b)` — weak comparison of two ETag strings (ignores the W/ prefix)
+
 ## [0.2.1] - 2026-03-31
 
 ### Changed
