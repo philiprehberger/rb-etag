@@ -1,9 +1,14 @@
 # frozen_string_literal: true
 
+require_relative 'parser'
+
 module Philiprehberger
   module Etag
     # Evaluates If-None-Match and If-Match headers against ETags.
-    module Matcher
+    #
+    # Can be used as a module (class methods) or instantiated with a header
+    # to expose the strong/weak predicate helpers.
+    class Matcher
       # Performs a weak comparison of an ETag against an If-None-Match header value.
       # Weak comparison ignores the W/ prefix when comparing.
       #
@@ -71,6 +76,69 @@ module Philiprehberger
       end
 
       private_class_method :strip_weak, :weak?, :parse_etags
+
+      # Builds a Matcher bound to a header value. Instances expose
+      # {#strong_match?} and {#weak_match?} predicate helpers for
+      # distinguishing the nature of a match per RFC 7232 §2.3.2.
+      #
+      # @param header [String, nil] the If-Match or If-None-Match header value
+      def initialize(header)
+        @header = header
+        @wildcard = !header.nil? && header.strip == '*'
+        @entries = parse_entries(header)
+      end
+
+      # Returns true iff any entry in the header is a strong match for the
+      # given ETag. Strong comparison requires that the opaque-tag be
+      # byte-for-byte equal and that neither side be weak.
+      #
+      # Wildcard `*` returns true for both predicates — wildcard expresses
+      # "any representation" per RFC 7232 §3.1 and is not a weakness signal.
+      #
+      # @param etag [String] the ETag to compare; accepts raw, quoted, or W/"..." input
+      # @return [Boolean]
+      def strong_match?(etag)
+        return false if etag.nil?
+        return true if @wildcard # wildcard matches any representation
+
+        parsed = parse_one(etag)
+        return false if parsed[:weak]
+
+        @entries.any? { |entry| !entry[:weak] && entry[:value] == parsed[:value] }
+      end
+
+      # Returns true iff any entry in the header has the same opaque-tag as
+      # the given ETag, ignoring weakness on either side. This is the weak
+      # comparison function per RFC 7232 §2.3.2.
+      #
+      # Wildcard `*` returns true for both predicates.
+      #
+      # @param etag [String] the ETag to compare; accepts raw, quoted, or W/"..." input
+      # @return [Boolean]
+      def weak_match?(etag)
+        return false if etag.nil?
+        return true if @wildcard # wildcard matches any representation
+
+        parsed = parse_one(etag)
+        @entries.any? { |entry| entry[:value] == parsed[:value] }
+      end
+
+      private
+
+      def parse_entries(header)
+        return [] if header.nil? || header.strip.empty?
+        return [] if header.strip == '*'
+
+        result = Parser.parse(header)
+        result.is_a?(Array) ? result : [result]
+      end
+
+      # Parses a single ETag token (raw `abc`, quoted `"abc"`, or weak `W/"abc"`)
+      # into `{ weak:, value: }` using the public parser.
+      def parse_one(etag)
+        result = Parser.parse(etag.to_s)
+        result.is_a?(Array) ? result.first : result
+      end
     end
   end
 end

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-16
+
+### Added
+- `Matcher#strong_match?` and `#weak_match?` predicates for distinguishing strong vs. weak RFC 7232 ETag matches
+
 ## [0.4.0] - 2026-04-15
 
 ### Added
