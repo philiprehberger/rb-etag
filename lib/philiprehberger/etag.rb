@@ -14,7 +14,7 @@ module Philiprehberger
     # Generates a strong ETag from content using the specified algorithm.
     #
     # @param content [String] the content to hash
-    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1)
+    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1, :sha3_256)
     # @return [String] a quoted ETag string
     # @raise [ArgumentError] if the algorithm is not supported
     def self.generate(content, algorithm: :sha256)
@@ -60,7 +60,7 @@ module Philiprehberger
     # Does not read file content.
     #
     # @param path [String] the file path
-    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1)
+    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1, :sha3_256)
     # @return [String] a quoted ETag string
     # @raise [Errno::ENOENT] if the file does not exist
     # @raise [ArgumentError] if the algorithm is not supported

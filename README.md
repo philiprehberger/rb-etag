@@ -42,6 +42,7 @@ Philiprehberger::Etag.generate("content", algorithm: :sha256)  # default
 Philiprehberger::Etag.generate("content", algorithm: :sha512)
 Philiprehberger::Etag.generate("content", algorithm: :md5)
 Philiprehberger::Etag.generate("content", algorithm: :sha1)
+Philiprehberger::Etag.generate("content", algorithm: :sha3_256)
 ```
 
 ### Weak ETags
@@ -176,7 +177,7 @@ The middleware computes a strong ETag from the raw response body before any Cont
 
 | Method | Description |
 |--------|-------------|
-| `Etag.generate(content, algorithm: :sha256)` | Strong ETag using specified algorithm, returns quoted string |
+| `Etag.generate(content, algorithm: :sha256)` | Strong ETag using specified algorithm (`:sha256`, `:sha512`, `:md5`, `:sha1`, `:sha3_256`), returns quoted string |
 | `Etag.weak(content)` | Weak ETag from MD5, returns `W/"..."` string |
 | `Etag.match?(etag, header)` | Weak comparison against If-None-Match header |
 | `Etag.equal?(a, b)` | Compare two ETag strings with weak semantics (strips W/) |
