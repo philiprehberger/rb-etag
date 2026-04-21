@@ -43,9 +43,25 @@ RSpec.describe Philiprehberger::Etag do
         expect(etag).to match(/\A"[a-f0-9]{40}"\z/)
       end
 
+      it 'generates with sha3_256' do
+        etag = described_class.generate('hello', algorithm: :sha3_256)
+        expect(etag).to match(/\A"[a-f0-9]{64}"\z/)
+      end
+
+      it 'sha3_256 produces a different digest than sha256' do
+        sha256  = described_class.generate('hello', algorithm: :sha256)
+        sha3256 = described_class.generate('hello', algorithm: :sha3_256)
+        expect(sha3256).not_to eq(sha256)
+      end
+
       it 'raises ArgumentError for unsupported algorithm' do
         expect { described_class.generate('hello', algorithm: :blake2) }
           .to raise_error(ArgumentError, /unsupported algorithm/)
+      end
+
+      it 'lists sha3_256 in the error message for unsupported algorithms' do
+        expect { described_class.generate('hello', algorithm: :blake2) }
+          .to raise_error(ArgumentError, /sha3_256/)
       end
 
       it 'returns different results for different algorithms' do

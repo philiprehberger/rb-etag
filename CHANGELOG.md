@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-21
+
+### Added
+- `:sha3_256` algorithm support for `Etag.generate`, `Etag.for_file`, and `Generator.strong` — dispatches to `OpenSSL::Digest('SHA3-256')`
+
 ## [0.5.0] - 2026-04-16
 
 ### Added

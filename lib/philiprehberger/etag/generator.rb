@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'digest'
+require 'openssl'
 
 module Philiprehberger
   module Etag
@@ -13,10 +14,13 @@ module Philiprehberger
         sha1: Digest::SHA1
       }.freeze
 
+      # Algorithms that delegate to OpenSSL::Digest rather than the stdlib `digest/*` classes.
+      OPENSSL_ALGORITHMS = { sha3_256: 'SHA3-256' }.freeze
+
       # Generates a strong ETag from content using the specified algorithm.
       #
       # @param content [String] the content to hash
-      # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1)
+      # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1, :sha3_256)
       # @return [String] a quoted ETag string, e.g. `"\"a1b2c3...\""`
       # @raise [ArgumentError] if the algorithm is not supported
       def self.strong(content, algorithm: :sha256)
@@ -37,7 +41,7 @@ module Philiprehberger
       # Does not read file content.
       #
       # @param path [String] the file path
-      # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1)
+      # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1, :sha3_256)
       # @return [String] a quoted ETag string
       # @raise [Errno::ENOENT] if the file does not exist
       # @raise [ArgumentError] if the algorithm is not supported
@@ -55,8 +59,15 @@ module Philiprehberger
       # @return [String] the hex digest
       # @raise [ArgumentError] if the algorithm is not supported
       def self.compute_digest(content, algorithm)
+        if (openssl_name = OPENSSL_ALGORITHMS[algorithm])
+          return OpenSSL::Digest.hexdigest(openssl_name, content.to_s)
+        end
+
         klass = ALGORITHMS[algorithm]
-        raise ArgumentError, "unsupported algorithm: #{algorithm}. Supported: #{ALGORITHMS.keys.join(', ')}" unless klass
+        unless klass
+          supported = (ALGORITHMS.keys + OPENSSL_ALGORITHMS.keys).join(', ')
+          raise ArgumentError, "unsupported algorithm: #{algorithm}. Supported: #{supported}"
+        end
 
         klass.hexdigest(content.to_s)
       end
