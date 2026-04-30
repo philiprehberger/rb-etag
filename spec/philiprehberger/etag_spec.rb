@@ -102,6 +102,29 @@ RSpec.describe Philiprehberger::Etag do
     end
   end
 
+  describe '.weak?' do
+    it 'returns true for an ETag with the W/ prefix' do
+      expect(described_class.weak?('W/"abc"')).to be true
+    end
+
+    it 'returns false for a strong ETag' do
+      expect(described_class.weak?('"abc"')).to be false
+    end
+
+    it 'returns false for nil' do
+      expect(described_class.weak?(nil)).to be false
+    end
+
+    it 'returns false for non-String inputs' do
+      expect(described_class.weak?(42)).to be false
+      expect(described_class.weak?(:symbol)).to be false
+    end
+
+    it 'is case-sensitive (RFC 7232 mandates uppercase W)' do
+      expect(described_class.weak?('w/"abc"')).to be false
+    end
+  end
+
   describe '.strip_weak' do
     it 'removes the W/ prefix from a weak ETag' do
       expect(described_class.strip_weak('W/"abc"')).to eq('"abc"')

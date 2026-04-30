@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-30
+
+### Added
+- `Etag.weak?(etag)` — predicate returning `true` when the value is a String prefixed with `W/`; `false` for strong, `nil`, and non-String inputs. Pairs with `strip_weak`.
+
 ## [0.6.0] - 2026-04-21
 
 ### Added

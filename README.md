@@ -89,6 +89,17 @@ Philiprehberger::Etag.strip_weak('"abc"')     # => "\"abc\""
 Philiprehberger::Etag.strip_weak(nil)         # => nil
 ```
 
+### Weak Predicate
+
+Detect whether an ETag is a weak validator (per RFC 7232, the literal `W/`
+prefix is uppercase). Pairs with `strip_weak`.
+
+```ruby
+Philiprehberger::Etag.weak?('W/"abc"')  # => true
+Philiprehberger::Etag.weak?('"abc"')     # => false
+Philiprehberger::Etag.weak?(nil)         # => false
+```
+
 ### Strong vs. Weak Match Predicates
 
 Build a `Matcher` bound to a header value to distinguish strong from weak matches per RFC 7232:
@@ -182,6 +193,7 @@ The middleware computes a strong ETag from the raw response body before any Cont
 | `Etag.match?(etag, header)` | Weak comparison against If-None-Match header |
 | `Etag.equal?(a, b)` | Compare two ETag strings with weak semantics (strips W/) |
 | `Etag.strip_weak(etag)` | Return the ETag with the `W/` prefix removed; `nil` passes through, non-Strings returned unchanged |
+| `Etag.weak?(etag)` | `true` when the ETag string starts with the `W/` weak-validator prefix; `false` for strong, `nil`, and non-String inputs |
 | `Etag.strong_match?(etag, header)` | Strong comparison against If-Match header |
 | `Etag.modified?(etag, request_headers)` | Check if resource is modified based on ETag headers |
 | `Etag.modified_since?(last_modified, header)` | Check if resource was modified after If-Modified-Since date |

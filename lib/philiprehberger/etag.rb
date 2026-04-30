@@ -96,6 +96,20 @@ module Philiprehberger
       a.sub(%r{\AW/}, '') == b.sub(%r{\AW/}, '')
     end
 
+    # Tests whether an ETag value is a weak validator.
+    #
+    # Returns true when the value is a String that starts with the literal
+    # `W/` prefix per RFC 7232 (uppercase W). Returns false for strong ETags,
+    # nil, and non-String inputs.
+    #
+    # @param etag [String, nil] the ETag value
+    # @return [Boolean]
+    def self.weak?(etag)
+      return false unless etag.is_a?(String)
+
+      etag.start_with?('W/')
+    end
+
     # Strips the weak validator prefix (W/) from an ETag string.
     # Returns the input unchanged if it is not a String or does not start with W/.
     #
