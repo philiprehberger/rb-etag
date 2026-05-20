@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-20
+
+### Added
+- `Etag.for_io(io, algorithm:, chunk_size:)` — streaming ETag generation that reads an IO in chunks instead of materialising the whole body in memory, suitable for large files and Rack response bodies
+- Card image reference in the README for registry-side rendering
+
 ## [0.7.0] - 2026-04-30
 
 ### Added

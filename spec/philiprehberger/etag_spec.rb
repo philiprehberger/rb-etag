@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'stringio'
 require 'tempfile'
 
 RSpec.describe Philiprehberger::Etag do
@@ -307,6 +308,53 @@ RSpec.describe Philiprehberger::Etag do
       allow(File).to receive(:read).and_call_original
       described_class.for_file(file.path)
       expect(File).not_to have_received(:read)
+    ensure
+      file&.unlink
+    end
+  end
+
+  describe '.for_io' do
+    it 'matches the equivalent strong ETag built from the full string' do
+      content = 'hello world'
+      strong = described_class.generate(content)
+      io = StringIO.new(content)
+      expect(described_class.for_io(io)).to eq(strong)
+    end
+
+    it 'produces the same digest regardless of chunk size' do
+      content = ('a'..'z').to_a.join * 10_000
+      ref = described_class.for_io(StringIO.new(content), chunk_size: 65_536)
+      [1, 13, 1024, 1_000_000].each do |size|
+        expect(described_class.for_io(StringIO.new(content), chunk_size: size)).to eq(ref)
+      end
+    end
+
+    it 'supports alternate algorithms' do
+      content = 'streaming payload'
+      io = StringIO.new(content)
+      expect(described_class.for_io(io, algorithm: :md5)).to eq(described_class.generate(content, algorithm: :md5))
+    end
+
+    it 'reads from the current position' do
+      io = StringIO.new('PREFIXdata')
+      io.read(6) # consume "PREFIX"
+      expect(described_class.for_io(io)).to eq(described_class.generate('data'))
+    end
+
+    it 'rejects non-positive chunk_size' do
+      expect { described_class.for_io(StringIO.new('x'), chunk_size: 0) }.to raise_error(ArgumentError)
+    end
+
+    it 'rejects unsupported algorithms' do
+      expect { described_class.for_io(StringIO.new('x'), algorithm: :rot13) }.to raise_error(ArgumentError)
+    end
+
+    it 'works on a real file' do
+      file = Tempfile.new('etag_for_io')
+      file.write('x' * 200_000)
+      file.close
+      digest = File.open(file.path, 'rb') { |f| described_class.for_io(f, chunk_size: 4096) }
+      expect(digest).to eq(described_class.generate('x' * 200_000))
     ensure
       file&.unlink
     end

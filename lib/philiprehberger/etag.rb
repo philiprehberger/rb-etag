@@ -68,6 +68,18 @@ module Philiprehberger
       Generator.for_file(path, algorithm: algorithm)
     end
 
+    # Generates a strong ETag by reading an IO stream in chunks, so large bodies
+    # never have to be loaded entirely into memory.
+    #
+    # @param io [IO, #read] an IO-like object
+    # @param algorithm [Symbol] the hash algorithm (:sha256, :sha512, :md5, :sha1, :sha3_256)
+    # @param chunk_size [Integer] bytes per read (default: 65_536)
+    # @return [String] a quoted ETag string
+    # @raise [ArgumentError] if the algorithm is not supported or chunk_size is <= 0
+    def self.for_io(io, algorithm: :sha256, chunk_size: 65_536)
+      Generator.for_io(io, algorithm: algorithm, chunk_size: chunk_size)
+    end
+
     # Parses an ETag header value into a structured hash or array of hashes.
     #
     # @param header [String] the ETag header value

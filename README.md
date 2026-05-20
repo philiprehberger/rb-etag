@@ -4,6 +4,8 @@
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-etag.svg)](https://rubygems.org/gems/philiprehberger-etag)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/rb-etag)](https://github.com/philiprehberger/rb-etag/commits/main)
 
+![philiprehberger-etag](https://raw.githubusercontent.com/philiprehberger/rb-etag/main/package-card.webp)
+
 ETag generation and conditional request helpers with Rack middleware
 
 ## Requirements
@@ -156,6 +158,20 @@ etag = Philiprehberger::Etag.for_file("/path/to/file.txt")
 etag = Philiprehberger::Etag.for_file("/path/to/file.txt", algorithm: :md5)
 ```
 
+### Streaming ETags (large bodies)
+
+```ruby
+require "philiprehberger/etag"
+
+# Hash a file without loading it entirely into memory
+etag = File.open("large.bin", "rb") do |io|
+  Philiprehberger::Etag.for_io(io, chunk_size: 65_536)
+end
+
+# Also works for any IO-like object responding to #read(n)
+etag = Philiprehberger::Etag.for_io(rack_response_body)
+```
+
 ### ETag Parsing
 
 ```ruby
@@ -199,6 +215,7 @@ The middleware computes a strong ETag from the raw response body before any Cont
 | `Etag.modified_since?(last_modified, header)` | Check if resource was modified after If-Modified-Since date |
 | `Etag.not_modified_since?(last_modified, header)` | Inverse of `modified_since?` |
 | `Etag.for_file(path, algorithm: :sha256)` | Strong ETag from file mtime and size without reading content |
+| `Etag.for_io(io, algorithm: :sha256, chunk_size: 65_536)` | Strong ETag from a streaming IO read in chunks (avoids loading the body into memory) |
 | `Etag.parse(header)` | Parse ETag header into `{weak:, value:}` hash or array of hashes |
 | `Etag::Matcher.new(header).strong_match?(etag)` | True iff header has a strong match for etag (byte-equal opaque tag, neither side weak); wildcard returns true |
 | `Etag::Matcher.new(header).weak_match?(etag)` | True iff header has an entry with the same opaque tag as etag (weakness ignored); wildcard returns true |
